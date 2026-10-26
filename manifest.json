@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "entroit.omacam",
+  "name": "OmaCam",
+  "version": "1.0.0",
+  "author": "Entroit",
+  "license": "MIT",
+  "description": "Live IP camera viewer in the Omarchy bar: dropdown grid, enlarged view, fullscreen, camera wall, and pinned picture-in-picture players.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Cameras",
+    "description": "Live IP cameras. Click to view, enlarge, go fullscreen, or pin a camera to the desktop.",
+    "category": "Info",
+    "allowMultiple": false,
+    "defaultSection": "center"
+  }
+}
