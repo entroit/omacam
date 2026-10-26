@@ -275,6 +275,8 @@ untouched, and shows the error at the bottom of **Manage cameras**.
   anywhere else, and nothing is recorded or saved to disk.
 - Cameras are stored in `~/.config/omacam/cameras.json`, readable only by
   you (mode 600), because it holds the camera passwords.
+- Logins never appear on a command line: helper processes get them through
+  stdin, so other users on the machine can't read them from the process list.
 - Give OmaCam a **view-only camera account** rather than the admin login.
   Watching needs no more than that.
 

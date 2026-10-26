@@ -25,15 +25,15 @@ Item {
     if (proc.running) proc.running = false
     _url = url
     result = null
+    _input = url + "\n"
     proc.command = [
-      "timeout", "-k", "2", "9",
-      "ffprobe", "-v", "error",
+      "bash", "-c", 'IFS= read -r url; exec timeout -k 2 9 ffprobe "$@" -/i /dev/stdin < <(printf %s "$url")', "omacam-probe",
+      "-v", "error",
       "-rtsp_transport", "tcp",
       "-timeout", "5000000",
       "-select_streams", "v:0",
       "-show_entries", "stream=codec_name,width,height,avg_frame_rate",
-      "-of", "json",
-      url
+      "-of", "json"
     ]
     proc.running = true
   }
@@ -71,9 +71,14 @@ Item {
   property string _stdout: ""
   property string _stderr: ""
 
+  // The address holds the camera login, so it goes in through stdin rather
+  // than the command line, where other users could read it.
+  property string _input: ""
+
   Process {
     id: proc
-    onStarted: { root._stdout = ""; root._stderr = "" }
+    stdinEnabled: true
+    onStarted: { root._stdout = ""; root._stderr = ""; write(root._input); root._input = "" }
     stdout: StdioCollector { id: out; waitForEnd: true; onStreamFinished: root._stdout = text }
     stderr: StdioCollector { id: err; waitForEnd: true; onStreamFinished: root._stderr = text }
     onExited: function(exitCode) {

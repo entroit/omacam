@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "entroit.omacam",
   "name": "OmaCam",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "Entroit",
   "license": "MIT",
   "description": "Live IP camera viewer in the Omarchy bar: dropdown grid, enlarged view, fullscreen, camera wall, and pinned picture-in-picture players.",
