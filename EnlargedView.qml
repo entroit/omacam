@@ -158,11 +158,14 @@ Column {
           width: parent.width
           spacing: 8
 
+          // Every camera keeps its row, the enlarged one hidden: rebuilding
+          // the rail on each swap tore the streams out of the side feeds.
           Repeater {
-            model: root.others
+            model: root.cams
             delegate: Rectangle {
               id: row
               required property var modelData
+              visible: modelData.id !== root.ctx.focusId
               width: rail.width
               height: 76
               radius: root.pal.radius

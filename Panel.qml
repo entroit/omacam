@@ -97,6 +97,10 @@ Panel {
     openPopup()
   }
 
+  // A fresh picture of the camera being enlarged, for while its full stream
+  // connects.
+  onFocusIdChanged: if (view === "camera" && streaming) snapshots.fetch([cameraStore.find(focusId)].filter(Boolean), 5000)
+
   function step(d) {
     var cams = cameraStore.enabledCameras
     if (cams.length === 0) return

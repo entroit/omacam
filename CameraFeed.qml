@@ -42,8 +42,27 @@ Item {
   property var primary: null
   property var fallback: null
 
-  readonly property bool primaryLive: !!primary && primary.live && primary.output === primaryVideo
-  readonly property bool fallbackLive: !!fallback && fallback.live && fallback.output === fallbackVideo
+  // A stream counts as showing here only once a new picture reached this
+  // view's output: until then the output still holds whatever it showed last
+  // (another camera, or this one minutes ago).
+  readonly property bool primaryLive: primaryFresh && primaryPlaying
+  readonly property bool fallbackLive: fallbackFresh && fallbackPlaying
+  readonly property bool primaryPlaying: !!primary && primary.live && primary.output === primaryVideo
+  readonly property bool fallbackPlaying: !!fallback && fallback.live && fallback.output === fallbackVideo
+  property bool primaryFresh: false
+  property bool fallbackFresh: false
+  onPrimaryChanged: primaryFresh = false
+  onFallbackChanged: fallbackFresh = false
+  onPrimaryPlayingChanged: if (!primaryPlaying) primaryFresh = false
+  onFallbackPlayingChanged: if (!fallbackPlaying) fallbackFresh = false
+  Connections {
+    target: primaryVideo.videoSink
+    function onVideoFrameChanged() { if (root.primaryPlaying) root.primaryFresh = true }
+  }
+  Connections {
+    target: fallbackVideo.videoSink
+    function onVideoFrameChanged() { if (root.fallbackPlaying) root.fallbackFresh = true }
+  }
   readonly property string fallbackKey: wanted && privateTag === "" && !primaryLive && otherKey !== primaryKey && pool.liveKeys[otherKey] === true ? otherKey : ""
 
   readonly property bool live: primaryLive || fallbackLive
