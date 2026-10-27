@@ -13,11 +13,12 @@ Item {
   visible: false
 
   property var _queued: null
+  property int _queuedAge: 0
   property string _input: ""
 
   // Fetch for these camera records, skipping ones with a recent picture.
   function fetch(cams, maxAgeMs) {
-    if (proc.running) { _queued = cams; return }
+    if (proc.running) { _queued = cams; _queuedAge = maxAgeMs || 0; return }
     var jobs = []
     var now = Date.now()
     for (var i = 0; i < cams.length; i++) {
@@ -81,6 +82,6 @@ for t in threads: t.join()
         if (cut > 0) Shared.keepSnapshotData(line.slice(0, cut), line.slice(cut + 1))
       }
     }
-    onExited: if (root._queued) { var q = root._queued; root._queued = null; root.fetch(q) }
+    onExited: if (root._queued) { var q = root._queued; root._queued = null; root.fetch(q, root._queuedAge) }
   }
 }
