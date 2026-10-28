@@ -33,27 +33,57 @@ Item {
     proc.running = true
   }
 
+  // A hard limit on the whole helper, however slowly cameras answer.
+  Timer {
+    interval: 15000
+    running: proc.running
+    onTriggered: proc.running = false
+  }
+
   Process {
     id: proc
     stdinEnabled: true
     command: ["python3", "-I", "-c", `
-import base64, json, ssl, sys, threading, urllib.request
+import base64, json, ssl, sys, threading, time, urllib.request
 
 jobs = json.loads(sys.stdin.readline())
 lock = threading.Lock()
 insecure = ssl.create_default_context()
 insecure.check_hostname = False
 insecure.verify_mode = ssl.CERT_NONE   # cameras use self-signed certificates
+LIMIT = 4_000_000
+
+# Redirects are refused: following one reads its whole body with no size
+# limit. Cameras that redirect send HTTP to their HTTPS home page anyway,
+# which run() tries on its own.
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args):
+        return None
+
+# At most LIMIT bytes, and only while there is time left.
+def read_capped(r, deadline):
+    data = b""
+    while len(data) <= LIMIT:
+        if time.monotonic() > deadline:
+            return None
+        chunk = r.read(65536)
+        if not chunk:
+            return data
+        data += chunk
+    return None
 
 def get(url, user, password):
-    handlers = [urllib.request.HTTPSHandler(context=insecure)]
+    deadline = time.monotonic() + 6
+    handlers = [urllib.request.HTTPSHandler(context=insecure), NoRedirect()]
     if user:
         pw = urllib.request.HTTPPasswordMgrWithDefaultRealm()
         pw.add_password(None, url, user, password)
         handlers += [urllib.request.HTTPBasicAuthHandler(pw), urllib.request.HTTPDigestAuthHandler(pw)]
     with urllib.request.build_opener(*handlers).open(url, timeout=4) as r:
         if r.status == 200 and r.headers.get_content_type().startswith("image/"):
-            return r.headers.get_content_type(), r.read(4_000_000)
+            data = read_capped(r, deadline)
+            if data:
+                return r.headers.get_content_type(), data
     return None
 
 def run(job):
