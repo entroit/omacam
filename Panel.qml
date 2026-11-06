@@ -55,7 +55,7 @@ Panel {
     }))
   }
   readonly property var targetScreen: button.QsWindow.window ? button.QsWindow.window.screen : null
-  readonly property real barHeight: button.QsWindow.window ? button.QsWindow.window.height : 30
+  readonly property real barHeight: bar ? bar.barSize : Style.bar.sizeHorizontal
 
   readonly property alias store: cameraStore
   readonly property alias pal: themePalette
