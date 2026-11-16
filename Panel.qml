@@ -19,8 +19,10 @@ Panel {
   ipcTarget: "entroit.omacam"
   manageIpc: false
 
-  // grid · camera · form · manage
+  // grid · camera · form · manage · share
   property string view: "grid"
+  property string shareMode: "export"   // export · import (what the share view opens as)
+  property string sharePath: ""         // file to prefill when importing
   property string focusId: ""
   property string formReturn: "grid"
   property var pinned: []
@@ -114,6 +116,19 @@ Panel {
     view = "form"
     openPopup()
     Qt.callLater(function() { if (formLoader.item) formLoader.item.load(record) })
+  }
+
+  // Export / import of cameras. Back goes to the manage list.
+  function openShare(mode, path) {
+    shareMode = mode === "import" ? "import" : "export"
+    sharePath = String(path || "")
+    if (view === "share" && shareLoader.item) shareLoader.item.begin(shareMode, sharePath)
+    view = "share"
+    openPopup()
+  }
+
+  function closeShare() {
+    view = "manage"
   }
 
   function cancelForm() {
@@ -233,7 +248,7 @@ Panel {
       fetchMissingSnapshots()
       if (view === "camera" && !cameraStore.find(focusId)) view = "grid"
       gridLoader.cursor = -1
-    } else if (view === "form" || view === "manage") {
+    } else if (view === "form" || view === "manage" || view === "share") {
       view = "grid"
     }
   }
@@ -251,6 +266,10 @@ Panel {
     function close(): void { root.viewerMode = ""; root.close() }
     function wall(): void { root.openWall() }
     function manage(): void { root.view = "manage"; root.openPopup() }
+    // Open the share view. There is deliberately no passphrase argument:
+    // arguments of this call are visible in the process list.
+    function exportCameras(): void { root.openShare("export", "") }
+    function importCameras(path: string): void { root.openShare("import", path) }
     function add(): void { root.openForm(null, "grid") }
     function edit(n: string): void { var c = root.cameraAt(n); if (c) root.openForm(c, "grid") }
     function camera(n: string): void { var c = root.cameraAt(n); if (c) root.openCamera(c.id, true) }
@@ -345,8 +364,10 @@ Panel {
         var hp = c.brand === "custom" ? Brands.splitHost(c.url, /^https?:/i.test(c.url) ? 80 : 554) : Brands.splitHost(c.host, Brands.port(c))
         args.push(c.id, hp.host, String(hp.port))
       }
+      // Host and port only ever travel as arguments of the inner shell (the
+      // single-quoted script is fixed text), never inside a command string.
       command = ["bash", "-c",
-        'while [ $# -ge 3 ]; do (timeout 2 bash -c ":</dev/tcp/$2/$3" 2>/dev/null && echo "$1 1" || echo "$1 0") & shift 3; done; wait',
+        'while [ $# -ge 3 ]; do (timeout 2 bash -c \':</dev/tcp/$1/$2\' omacam-reach "$2" "$3" 2>/dev/null && echo "$1 1" || echo "$1 0") & shift 3; done; wait',
         "omacam-reach"].concat(args)
       running = true
     }
@@ -413,17 +434,17 @@ Panel {
     bar: root.bar
     open: root.opened
     focusTarget: keyCatcher
-    contentWidth: panel.fittedContentWidth(root.view === "camera" ? 1180 : root.view === "manage" ? 860 : root.view === "form" ? 680 : 560)
+    contentWidth: panel.fittedContentWidth(root.view === "camera" ? 1180 : root.view === "manage" ? 860 : root.view === "form" || root.view === "share" ? 680 : 560)
     contentHeight: panel.fittedContentHeight(content.implicitHeight, 980)
 
     // Keys come from config.json (keys.dropdown in the grid and manage list,
-    // keys.enlarged on one camera). The form takes its own keys.
+    // keys.enlarged on one camera). The form and the share view take their own keys.
     Item {
       id: keyCatcher
       anchors.fill: parent
       focus: true
       Keys.priority: Keys.BeforeItem
-      Keys.onPressed: function(e) { if (root.view !== "form" && root.handleKey(e)) e.accepted = true }
+      Keys.onPressed: function(e) { if (root.view !== "form" && root.view !== "share" && root.handleKey(e)) e.accepted = true }
 
       Flickable {
         id: flick
@@ -441,6 +462,7 @@ Panel {
           implicitHeight: root.view === "camera" ? cameraLoader.implicitHeight
                         : root.view === "form" ? formLoader.implicitHeight
                         : root.view === "manage" ? manageLoader.implicitHeight
+                        : root.view === "share" ? shareLoader.implicitHeight
                         : gridLoader.implicitHeight
 
           // Kept alive behind the other views so its streams keep running.
@@ -473,6 +495,15 @@ Panel {
             active: root.view === "manage" && root.opened
             visible: active
             sourceComponent: ManageView { width: manageLoader.width; ctx: root }
+          }
+
+          // Gone as soon as the view is left: nothing typed or decrypted in it survives.
+          Loader {
+            id: shareLoader
+            width: parent.width
+            active: root.view === "share" && root.opened
+            visible: active
+            sourceComponent: ShareView { width: shareLoader.width; ctx: root }
           }
         }
       }

@@ -184,7 +184,7 @@ PanelWindow {
         anchors.centerIn: parent
         spacing: 6
         Rectangle { visible: !tile.feed.live; anchors.verticalCenter: parent.verticalCenter; width: 6; height: 6; radius: 3; color: tile.feed.failed ? root.th.urgent : root.th.warn }
-        Text { text: root.camera ? root.camera.name : ""; font.family: root.th.font; font.pixelSize: 11; font.weight: Font.DemiBold; color: "#ffffff" }
+        Text { text: root.camera ? root.camera.name : ""; textFormat: Text.PlainText; font.family: root.th.font; font.pixelSize: 11; font.weight: Font.DemiBold; color: "#ffffff" }
         Text { visible: root.ctx.soundOn(root.cameraId, "pip:" + root.cameraId) && root.ctx.sound.soundOf(root.cameraId) !== "no"; text: "\u{F057E}"; font.family: root.th.font; font.pixelSize: 12; color: "#ffffff" }
       }
     }
@@ -230,7 +230,7 @@ PanelWindow {
       Row {
         anchors { left: parent.left; leftMargin: 30; verticalCenter: parent.verticalCenter; verticalCenterOffset: -3 }
         spacing: 8
-        Text { anchors.verticalCenter: parent.verticalCenter; text: root.camera ? root.camera.name : ""; font.family: root.th.font; font.pixelSize: 12; font.weight: Font.DemiBold; color: "#ffffff" }
+        Text { anchors.verticalCenter: parent.verticalCenter; text: root.camera ? root.camera.name : ""; textFormat: Text.PlainText; font.family: root.th.font; font.pixelSize: 12; font.weight: Font.DemiBold; color: "#ffffff" }
       }
       Row {
         anchors { right: parent.right; rightMargin: 30; verticalCenter: parent.verticalCenter; verticalCenterOffset: -3 }

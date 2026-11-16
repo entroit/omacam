@@ -127,7 +127,7 @@ PanelWindow {
       anchors { left: parent.left; top: parent.top; margins: 24 }
       spacing: 16
       ActionButton { solid: true; pal: root.th; icon: "\u{F0141}"; text: "Back"; hint: root.key("fullscreen", "back"); onClicked: root.ctx.viewerBack() }
-      Text { anchors.verticalCenter: parent.verticalCenter; text: root.camera ? root.camera.name : ""; font.family: root.th.font; font.pixelSize: Style.font.display; font.weight: Font.Bold; color: "#ffffff" }
+      Text { anchors.verticalCenter: parent.verticalCenter; text: root.camera ? root.camera.name : ""; textFormat: Text.PlainText; font.family: root.th.font; font.pixelSize: Style.font.display; font.weight: Font.Bold; color: "#ffffff" }
     }
 
     Row {
@@ -357,7 +357,7 @@ PanelWindow {
       anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: 16 }
       spacing: 6
       Repeater {
-        model: root.hints([[root.key("wall", "left") + root.key("wall", "up") + root.key("wall", "down") + root.key("wall", "right"), "move"], [root.numbers, "jump"], [root.key("wall", "open"), "enlarge"], [root.key("wall", "pin"), "pin"], [root.key("wall", "back"), "back"], [root.key("wall", "close"), "close"]])
+        model: root.hints([[Config.moveLabel(root.cfg.keys.wall.left, root.cfg.keys.wall.up, root.cfg.keys.wall.down, root.cfg.keys.wall.right), "move"], [root.numbers, "jump"], [root.key("wall", "open"), "enlarge"], [root.key("wall", "pin"), "pin"], [root.key("wall", "back"), "back"], [root.key("wall", "close"), "close"]])
         delegate: KeyHint { required property var modelData; pal: root.th; keys: modelData[0]; label: modelData[1] }
       }
     }

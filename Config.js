@@ -113,6 +113,86 @@ function merge(base, over) {
   return out
 }
 
+// --- sanitizing settings that come from outside (a share) -----------------------
+// Allowed range of every number, and allowed values of every word setting.
+var LIMITS = {
+  "connection.keepConnectedSeconds": [0, 3600], "connection.warmOnHoverSeconds": [0, 3600],
+  "connection.keepFullQualitySeconds": [0, 3600], "connection.retrySeconds": [1, 3600],
+  "connection.statusCheckSeconds": [5, 3600], "sound.closeAfterMutedSeconds": [0, 3600],
+  "dropdown.columns": [1, 6], "wall.columns": [0, 12], "pinned.width": [160, 1920], "pinned.snapDistance": [0, 200]
+}
+var CHOICES = {
+  "bar.leftClick": ["dropdown", "wall", "manage", "fullscreen", "none"],
+  "bar.middleClick": ["dropdown", "wall", "manage", "fullscreen", "none"],
+  "bar.rightClick": ["dropdown", "wall", "manage", "fullscreen", "none"],
+  "dropdown.click": ["enlarge", "fullscreen", "pin", "none"], "dropdown.doubleClick": ["enlarge", "fullscreen", "pin", "none"],
+  "wall.click": ["fullscreen", "enlarge", "pin", "none"]
+}
+var KEY_MODIFIERS = ["ctrl", "control", "shift", "alt", "super", "meta"]
+
+function ownValue(obj, key) {
+  return isObject(obj) && Object.prototype.hasOwnProperty.call(obj, key) ? obj[key] : undefined
+}
+
+// A key spec `matches` can act on: optional modifiers, then one character or
+// a name from NAMED ("Ctrl+q", "Shift+Tab", "F5", "Ctrl++").
+function validKey(spec) {
+  var mods, key
+  if (spec === "+") { mods = []; key = "+" }
+  else if (spec.slice(-2) === "++") { mods = spec.slice(0, -2).split("+"); key = "+" }
+  else { mods = spec.split("+"); key = mods.pop() }
+  for (var i = 0; i < mods.length; i++) if (KEY_MODIFIERS.indexOf(mods[i].toLowerCase()) === -1) return false
+  if (key.length === 1) return !/[\u0000-\u0020\u007f-\u00a0\u2028\u2029]/.test(key)
+  return Object.prototype.hasOwnProperty.call(NAMED, key.toLowerCase())
+}
+
+function validKeys(list) {
+  if (typeof list === "string") list = [list]
+  if (!(list instanceof Array) || list.length === 0 || list.length > 8) return null
+  for (var i = 0; i < list.length; i++) {
+    if (typeof list[i] !== "string" || list[i].length > 32 || !validKey(list[i])) return null
+  }
+  return list.slice()
+}
+
+// Settings from a share, reduced to what OmaCam understands: only keys in
+// DEFAULTS are looked at (never the input's own), values keep the type of the
+// default, numbers are clamped, words must be ones the code acts on, key lists
+// must be well formed and are never left empty. Anything unusable keeps
+// `current` (the settings in use; DEFAULTS when omitted). Always a complete
+// settings object.
+function sanitize(input, current) {
+  return sanitizeNode(DEFAULTS, input, isObject(current) ? current : DEFAULTS, "")
+}
+
+function sanitizeNode(base, input, current, path) {
+  var out = {}
+  for (var k in base) {
+    var def = base[k]
+    var here = path ? path + "." + k : k
+    var fallback = ownValue(current, k)
+    if (fallback === undefined) fallback = def
+    var v = ownValue(input, k)
+    if (isObject(def)) {
+      out[k] = sanitizeNode(def, v, isObject(fallback) ? fallback : def, here)
+    } else if (def instanceof Array) {
+      out[k] = validKeys(v) || validKeys(fallback) || def.slice()
+    } else if (typeof def === "number") {
+      var range = LIMITS[here]
+      if (range && typeof v === "number" && isFinite(v)) out[k] = Math.max(range[0], Math.min(range[1], Math.round(v)))
+      else out[k] = k === "version" ? def : (typeof fallback === "number" ? fallback : def)
+    } else if (typeof def === "boolean") {
+      out[k] = typeof v === "boolean" ? v : (typeof fallback === "boolean" ? fallback : def)
+    } else if (typeof def === "string") {
+      var choices = CHOICES[here]
+      out[k] = typeof v === "string" && choices && choices.indexOf(v) !== -1 ? v : (typeof fallback === "string" ? fallback : def)
+    } else {
+      out[k] = def
+    }
+  }
+  return out
+}
+
 function get(obj, path) {
   var parts = path.split(".")
   for (var i = 0; i < parts.length && obj !== undefined; i++) obj = obj[parts[i]]
@@ -146,7 +226,7 @@ var NAMED = {
 for (var f = 1; f <= 12; f++) NAMED["f" + f] = 0x01000030 + f - 1
 
 var LABELS = {
-  escape: "esc", esc: "esc", return: "↵", enter: "↵", backspace: "⌫", delete: "del",
+  escape: "esc", esc: "esc", return: "\u{F0311}", enter: "\u{F0311}", backspace: "⌫", delete: "del",
   left: "←", right: "→", up: "↑", down: "↓", tab: "tab", space: "space",
   pageup: "pgup", pagedown: "pgdn", home: "home", end: "end"
 }
@@ -197,6 +277,14 @@ function label(keys) {
   var name = p.key.length === 1 ? p.key : (LABELS[p.key.toLowerCase()] || p.key.toLowerCase())
   var pre = (p.mods & CTRL ? "ctrl+" : "") + (p.mods & ALT ? "alt+" : "") + (p.mods & META ? "super+" : "") + (p.mods & SHIFT && p.key.length > 1 ? "shift+" : "")
   return pre + name
+}
+
+// One chip for the four movement keys: the default arrows become a single
+// four-way glyph (nf-md-arrow_all) instead of four glyphs crammed together;
+// custom keys such as "hjkl" are shown as typed.
+function moveLabel(left, up, down, right) {
+  var s = label(left) + label(up) + label(down) + label(right)
+  return s === "←↑↓→" ? "\u{F0041}" : s
 }
 
 // "←→" style label for a pair of actions.

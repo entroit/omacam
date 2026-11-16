@@ -59,6 +59,7 @@ Rectangle {
       visible: root.text !== ""
       anchors.verticalCenter: parent.verticalCenter
       text: root.text
+      textFormat: Text.PlainText
       font.family: root.pal.font
       font.pixelSize: root.fontSize
       font.weight: Font.DemiBold

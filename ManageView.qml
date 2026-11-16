@@ -217,10 +217,11 @@ Column {
             x: 160; anchors.verticalCenter: parent.verticalCenter
             width: parent.width - 330 - 160 - 12
             spacing: 3
-            Text { width: parent.width; elide: Text.ElideRight; text: row.modelData.name; font.family: root.pal.font; font.pixelSize: Style.font.title; font.weight: Font.DemiBold; color: row.hidden ? root.pal.dim : root.pal.fg }
+            Text { width: parent.width; elide: Text.ElideRight; text: row.modelData.name; textFormat: Text.PlainText; font.family: root.pal.font; font.pixelSize: Style.font.title; font.weight: Font.DemiBold; color: row.hidden ? root.pal.dim : root.pal.fg }
             Text {
               width: parent.width
               elide: Text.ElideRight
+              textFormat: Text.PlainText
               text: row.modelData.brand === "custom" ? Brands.displayUrl(row.modelData) : [Brands.hostLabel(row.modelData), row.modelData.user].filter(function(s) { return s !== "" }).join(" · ")
               font.family: root.pal.font
               font.pixelSize: Style.font.caption + 1
@@ -278,7 +279,7 @@ Column {
             visible: row.confirming
             x: 160; anchors.verticalCenter: parent.verticalCenter
             spacing: 3
-            Text { text: "Delete “" + row.modelData.name + "”?"; font.family: root.pal.font; font.pixelSize: Style.font.title; font.weight: Font.DemiBold; color: root.pal.fg }
+            Text { text: "Delete “" + row.modelData.name + "”?"; textFormat: Text.PlainText; font.family: root.pal.font; font.pixelSize: Style.font.title; font.weight: Font.DemiBold; color: root.pal.fg }
             Text { text: "It's removed from OmaCam only. Nothing on the camera changes."; font.family: root.pal.font; font.pixelSize: Style.font.caption + 1; color: root.pal.dim }
           }
           Row {
@@ -387,6 +388,56 @@ Column {
             }
           }
         }
+      }
+    }
+  }
+
+  // --- sharing ------------------------------------------------------------------
+  Item { width: parent.width; height: 6 }
+
+  Text {
+    text: "SHARE"
+    textFormat: Text.PlainText
+    font.family: root.pal.font
+    font.pixelSize: 10
+    font.letterSpacing: 1.5
+    color: root.pal.dim
+  }
+
+  Rectangle {
+    width: parent.width
+    height: shareRow.height + 24
+    radius: root.pal.radius
+    color: root.pal.tint(root.pal.fg, 0.03)
+    border.width: 1
+    border.color: root.pal.line
+
+    Item {
+      id: shareRow
+      x: 14; y: 12
+      width: parent.width - 28
+      height: Math.max(shareText.implicitHeight, shareButtons.implicitHeight)
+      Column {
+        id: shareText
+        anchors { left: parent.left; right: shareButtons.left; rightMargin: 16; verticalCenter: parent.verticalCenter }
+        spacing: 3
+        Text { text: "Share cameras with someone else"; textFormat: Text.PlainText; font.family: root.pal.font; font.pixelSize: Style.font.title; font.weight: Font.DemiBold; color: root.pal.fg }
+        Text {
+          width: parent.width
+          wrapMode: Text.WordWrap
+          textFormat: Text.PlainText
+          text: "One file, locked with a passphrase, that another OmaCam can import."
+          font.family: root.pal.font
+          font.pixelSize: Style.font.caption + 1
+          color: root.pal.dim
+        }
+      }
+      Row {
+        id: shareButtons
+        anchors { right: parent.right; verticalCenter: parent.verticalCenter }
+        spacing: 6
+        ActionButton { pal: root.pal; text: "Export\u2026"; enabled: root.cams.length > 0; onClicked: root.ctx.openShare("export", "") }
+        ActionButton { pal: root.pal; text: "Import\u2026"; onClicked: root.ctx.openShare("import", "") }
       }
     }
   }
