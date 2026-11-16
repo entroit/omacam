@@ -57,11 +57,11 @@ Item {
   onFallbackPlayingChanged: if (!fallbackPlaying) fallbackFresh = false
   Connections {
     target: primaryVideo.videoSink
-    function onVideoFrameChanged() { if (root.primaryPlaying) root.primaryFresh = true }
+    function onVideoFrameChanged() { if (root.primaryPlaying && primaryVideo.videoSink.videoSize.width > 0) root.primaryFresh = true }
   }
   Connections {
     target: fallbackVideo.videoSink
-    function onVideoFrameChanged() { if (root.fallbackPlaying) root.fallbackFresh = true }
+    function onVideoFrameChanged() { if (root.fallbackPlaying && fallbackVideo.videoSink.videoSize.width > 0) root.fallbackFresh = true }
   }
   readonly property string fallbackKey: wanted && privateTag === "" && !primaryLive && otherKey !== primaryKey && pool.liveKeys[otherKey] === true ? otherKey : ""
 

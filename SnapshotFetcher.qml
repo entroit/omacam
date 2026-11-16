@@ -3,7 +3,7 @@ import Quickshell.Io
 import "Brands.js" as Brands
 import "Shared.js" as Shared
 
-// Asks cameras for a single JPEG over HTTP (a fraction of a second, versus
+// Asks cameras for a single JPEG over HTTPS (a fraction of a second, versus
 // seconds for the first live picture), so views open with a fresh picture
 // while video connects. Nothing is written anywhere: the picture comes back
 // as a data URL and only lives in memory. Logins reach the helper through
@@ -26,7 +26,7 @@ Item {
       var have = Shared.snapshots[c.id]
       if (have && now - have.time < (maxAgeMs || 20000)) continue
       var req = Brands.snapshotRequest(c)
-      if (req) jobs.push({ id: c.id, url: req.url, user: req.user, password: req.password })
+      if (req) jobs.push({ id: c.id, url: req.url, plainUrl: req.plainUrl, user: req.user, password: req.password })
     }
     if (jobs.length === 0) return
     _input = JSON.stringify(jobs) + "\n"
@@ -44,18 +44,23 @@ Item {
     id: proc
     stdinEnabled: true
     command: ["python3", "-I", "-c", `
-import base64, json, ssl, sys, threading, time, urllib.request
+import base64, json, ssl, sys, threading, time, urllib.request, warnings
 
 jobs = json.loads(sys.stdin.readline())
 lock = threading.Lock()
+# Cameras use self-signed certificates, and older ones only speak TLS 1.0
+# with legacy ciphers. Still encrypted, which is what keeps logins private.
+warnings.simplefilter("ignore", DeprecationWarning)
 insecure = ssl.create_default_context()
 insecure.check_hostname = False
-insecure.verify_mode = ssl.CERT_NONE   # cameras use self-signed certificates
+insecure.verify_mode = ssl.CERT_NONE
+insecure.minimum_version = ssl.TLSVersion.TLSv1
+insecure.options |= getattr(ssl, "OP_LEGACY_SERVER_CONNECT", 0x4)
+insecure.set_ciphers("DEFAULT:@SECLEVEL=0")
 LIMIT = 4_000_000
 
 # Redirects are refused: following one reads its whole body with no size
-# limit. Cameras that redirect send HTTP to their HTTPS home page anyway,
-# which run() tries on its own.
+# limit, and could carry the request somewhere else.
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, *args):
         return None
@@ -72,13 +77,16 @@ def read_capped(r, deadline):
         data += chunk
     return None
 
-def get(url, user, password):
+def get(url, user, password, encrypted):
     deadline = time.monotonic() + 6
     handlers = [urllib.request.HTTPSHandler(context=insecure), NoRedirect()]
     if user:
         pw = urllib.request.HTTPPasswordMgrWithDefaultRealm()
         pw.add_password(None, url, user, password)
-        handlers += [urllib.request.HTTPBasicAuthHandler(pw), urllib.request.HTTPDigestAuthHandler(pw)]
+        handlers.append(urllib.request.HTTPDigestAuthHandler(pw))
+        # Basic sends the password as readable text: HTTPS only.
+        if encrypted:
+            handlers.append(urllib.request.HTTPBasicAuthHandler(pw))
     with urllib.request.build_opener(*handlers).open(url, timeout=4) as r:
         if r.status == 200 and r.headers.get_content_type().startswith("image/"):
             data = read_capped(r, deadline)
@@ -87,11 +95,16 @@ def get(url, user, password):
     return None
 
 def run(job):
-    url = job["url"]
-    # Some cameras redirect HTTP to their HTTPS home page, dropping the path.
-    for attempt in (url, url.replace("http://", "https://", 1)):
+    # HTTPS first. Plain HTTP only where the request carries no login
+    # (Brands.js leaves plainUrl empty otherwise), answering digest only.
+    attempts = [(job["url"], True)]
+    if job.get("plainUrl", "").startswith("http://"):
+        attempts.append((job["plainUrl"], False))
+    for url, encrypted in attempts:
+        if not url.startswith("https://" if encrypted else "http://"):
+            continue
         try:
-            got = get(attempt, job["user"], job["password"])
+            got = get(url, job["user"], job["password"], encrypted)
         except Exception:
             got = None
         if got:
