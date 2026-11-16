@@ -124,6 +124,7 @@ Item {
   // never a low-res stream that doesn't work.
   property bool everLive: false
   property string url: ""
+  property bool viaRelay: false
 
   function start() {
     retryTimer.stop()
@@ -134,14 +135,29 @@ Item {
       stop()
       return
     }
+    // The player gets the relay's address, never one with the login in it.
+    var source = pool.relay.address(key, url)
+    viaRelay = source !== url
+    player.stop()
+    player.source = ""
+    if (source === "") {
+      // The relay is starting: onPortChanged below starts the stream.
+      attempting = false
+      loaded = false
+      if (pool.relay.broken) {
+        status = "error"
+        message = "Couldn't start the stream relay (python3)"
+      } else if (!failed) {
+        status = "connecting"
+      }
+      return
+    }
     if (!failed) status = "connecting"
     attempting = true
     loaded = false
-    player.stop()
-    // Same address again (a reconnect): without clearing it first the
-    // player keeps its old, possibly dead connection instead of opening one.
-    player.source = ""
-    player.source = url
+    // Same address again (a reconnect): clearing it first (above) makes the
+    // player open a new connection instead of keeping its old, dead one.
+    player.source = source
     player.play()
   }
 
@@ -262,6 +278,16 @@ Item {
     repeat: true
     running: root.status === "live"
     onTriggered: if (Date.now() - root.lastFrame > root.pool.stallMs) root.dropped()
+  }
+
+  // The relay (re)started on a new port: streams through it, and ones
+  // waiting for it, start again.
+  Connections {
+    target: root.pool.relay
+    function onPortChanged() {
+      if (root.held && (root.viaRelay || root.status !== "idle")) root.requestStart()
+    }
+    function onBrokenChanged() { if (root.held && root.pool.relay.broken && !root.live) root.start() }
   }
 
   VideoOutput { id: parking; width: 1; height: 1; visible: false }
