@@ -23,6 +23,10 @@ Item {
   // Stream key -> true while it shows pictures.
   property var liveKeys: ({})
 
+  // Plays camera streams without their login in the address (see RtspRelay).
+  readonly property alias relay: relayItem
+  RtspRelay { id: relayItem }
+
   property var streams: ({})
   property int serial: 0
 

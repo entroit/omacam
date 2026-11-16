@@ -187,6 +187,7 @@ Panel {
     camera: root.soundOwner !== "" ? cameraStore.find(root.ownerCameraId()) : null
     muted: !!root.mutedCams[root.ownerCameraId()]
     parkSeconds: omaSettings.seconds(omaSettings.sound.closeAfterMutedSeconds, 20)
+    relay: streamPool.relay
   }
   function claimSound(key) { soundOwner = key }
   function releaseSound(key) {

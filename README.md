@@ -277,6 +277,13 @@ untouched, and shows the error at the bottom of **Manage cameras**.
   you (mode 600), because it holds the camera passwords.
 - Logins never appear on a command line: helper processes get them through
   stdin, so other users on the machine can't read them from the process list.
+- Logins stay out of the shell's log too. Qt's video player logs every
+  address it opens, so it never gets one with a password in it: a small
+  local relay (`relay.py`, reachable only from this machine and only with a
+  random per-session token) connects to the camera and logs in for it.
+  Streams through the relay use RTSP over TCP.
+- Still pictures are fetched over HTTPS. Logins are never sent in readable
+  form over plain HTTP.
 - Give OmaCam a **view-only camera account** rather than the admin login.
   Watching needs no more than that.
 

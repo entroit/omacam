@@ -13,6 +13,7 @@ Item {
 
   property var camera: null
   property bool muted: false
+  property var relay: null
   // Camera id -> true / false once checked whether it really sends sound.
   property var known: ({})
 
@@ -45,7 +46,9 @@ Item {
     player.stop()
     player.source = ""
     if (!wanted) return
-    player.source = url
+    var source = relay ? relay.address("sound", url) : url
+    if (source === "") return       // relay starting: onPortChanged retries
+    player.source = source
     player.play()
     if (known[cameraId] === undefined && !check.running) { check.forId = cameraId; check.check(Brands.streamUrl(camera, "main")) }
   }
@@ -61,6 +64,11 @@ Item {
     // Reconnect if the stream drops or fails while it should be playing.
     onMediaStatusChanged: if ((mediaStatus === MediaPlayer.EndOfMedia || mediaStatus === MediaPlayer.InvalidMedia) && root.wanted) retry.restart()
     onErrorOccurred: if (root.wanted) retry.restart()
+  }
+
+  Connections {
+    target: root.relay
+    function onPortChanged() { startDelay.restart() }
   }
 
   Timer { id: retry; interval: 5000; onTriggered: if (root.wanted) root.restart() }
