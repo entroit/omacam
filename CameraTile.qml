@@ -98,6 +98,7 @@ Rectangle {
       width: Math.min(implicitWidth, root.width - (root.showNumber ? 48 : 20) - (root.showBadge ? 96 : 0))
       elide: Text.ElideRight
       text: root.camera ? root.camera.name : ""
+      textFormat: Text.PlainText
       font.family: root.pal.font
       font.pixelSize: Style.font.subtitle
       font.weight: Font.DemiBold
@@ -133,6 +134,7 @@ Rectangle {
     width: parent.width - 20
     elide: Text.ElideRight
     text: root.camera ? root.camera.name : ""
+    textFormat: Text.PlainText
     font.family: root.pal.font
     font.pixelSize: 11
     font.weight: Font.DemiBold

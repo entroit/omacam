@@ -40,6 +40,7 @@
 - **Pinned players.** Keep a camera floating on the desktop; drag it, snap it to an edge, resize it from any corner.
 - **No reconnecting.** Each camera is connected once and every view shares that stream, so moving between views is instant.
 - **Quick first picture.** A still image appears in well under a second while the live video starts.
+- **Share cameras.** Export cameras (with or without logins) to one passphrase-encrypted file and import it on another machine in a few clicks.
 - **Most brands built in.** Hikvision, Dahua / Amcrest, Reolink, TP-Link Tapo, D-Link, EZVIZ, Axis, Uniview, Foscam, or any `rtsp://` / `http://` address.
 - **Fully configurable.** Every key, click, timing and layout option lives in one JSON file that reloads live.
 - **Follows your theme.** Colours come from the active Omarchy theme and switch with it.
@@ -87,6 +88,62 @@ To support another brand, add one line to [`Brands.js`](Brands.js).
   <img src="assets/manage.png" width="85%" alt="Manage cameras: the camera list with key, brand and live status, and the connection setting">
 </p>
 
+## Sharing cameras
+
+Handing someone your cameras (a family member, a second computer) is an
+export on one side and an import on the other.
+
+**Export.** In **Manage cameras**, the Share section's **Export…** button (or
+`omarchy-shell omacam exportCameras`). Tick the cameras to share and choose whether to include
+their logins and, optionally, your settings. OmaCam suggests a random
+passphrase; you can type your own (at least 12 characters). **Save file**
+writes `~/Downloads/omacam-cameras-<date>.omacam` (in your home folder when
+`~/Downloads` doesn't exist; it never overwrites an existing file), **Copy to clipboard** copies the same encrypted text instead.
+The **Copy** button next to the passphrase asks the clipboard history to skip
+it.
+
+**Send the file and the passphrase through different channels**, for example
+the file by chat and the passphrase by phone call. Anyone who has both can
+watch the cameras if logins are included.
+
+**Import.** **Import…** in the same section (or `omarchy-shell omacam
+importCameras [file]`). Pick the file (OmaCam lists `.omacam` files it finds
+in Downloads and your home folder) or paste from the clipboard, enter the
+passphrase and look over the preview. Every camera shows the address OmaCam
+will connect to (for a custom camera its whole address, without any login):
+only import shares from people you trust. Only cameras on a private network
+address (192.168.x.x, 10.x.x.x, 172.16-31.x.x, fd…, a `.local` name) start
+ticked, and not custom `http://` ones. Public addresses, this computer
+(`localhost`, `127.x.x.x`), link-local addresses (`169.254.x.x`, `fe80::`) and
+custom `http://` addresses are flagged and start unticked. Cameras you already
+have are marked "Already added"; if the share carries a different login for
+one, you can update just that login. A camera in the share that doesn't pass
+OmaCam's checks is skipped, and the preview says how many. Nothing you have is
+deleted or overwritten otherwise. The shared settings are only applied if you
+turn on **Also apply the shared settings**; your current `config.json` is
+saved as `config.json.bak` first (if the copy fails, they aren't applied).
+Only settings OmaCam knows are taken, within their allowed ranges, so a share
+can't bind a key that doesn't exist.
+
+**What is in a share:** each camera's name, brand, address or URL, stream
+layout and hidden/visible state; your settings only if included. Pinned
+players and snapshots are not. **Without logins**, usernames and passwords are
+left out, and in custom addresses `user:pass@` and the query parameters
+`user`, `usr`, `username`, `login`, `pwd`, `pass`, `passwd`, `password`,
+`token` and `auth` are removed as well. Anything else inside a custom address
+(for example a login in the path) is shared as stored, so check those
+addresses yourself.
+
+**Format.** The passphrase is stretched with scrypt (N = 2^17, r = 8, p = 1)
+and the share is encrypted with AES-256-GCM, with the header authenticated
+too. The plaintext is padded to a multiple of 512 bytes so password lengths
+don't show. This is passphrase encryption: someone who gets the file can try
+passphrases offline, so a long one matters (the generated ones have 100 bits).
+A wrong passphrase and a damaged file look the same on purpose. It all runs in
+`share.py` with Python's standard library and the system OpenSSL, nothing to
+install. Your own `cameras.json` stays plain text, readable only by you (mode
+600).
+
 ## Using it
 
 | Where | Action |
@@ -115,7 +172,10 @@ bind = SUPER, C, exec, omarchy-shell omacam toggle
 
 Other calls: `open`, `close`, `wall`, `manage`, `add`, `edit <n|name>`,
 `camera <n|name>`, `fullscreen <n|name>`, `pin <n|name>`, `sound` (mute or
-unmute whatever is playing).
+unmute whatever is playing), `soundState` (JSON: which view owns the sound and
+whether it plays), `exportCameras` and `importCameras <file>` (open the share
+view; the file may be empty). There is no passphrase argument on purpose:
+command-line arguments are visible to other users in the process list.
 
 ## Configuration
 
@@ -282,6 +342,15 @@ untouched, and shows the error at the bottom of **Manage cameras**.
   local relay (`relay.py`, reachable only from this machine and only with a
   random per-session token) connects to the camera and logs in for it.
   Streams through the relay use RTSP over TCP.
+- Shares (`.omacam` files) are encrypted with a passphrase you choose, see
+  [Sharing cameras](#sharing-cameras). `share.py` gets the passphrase and
+  any logins through stdin, writes nothing to the log, and rejects anything
+  it doesn't understand: the brand, address, name and login of every shared
+  camera are checked before it is shown, and shown as plain text. Camera
+  addresses are only ever passed to helper programs as arguments, never built
+  into shell commands. An imported camera is contacted at the address the
+  share names, which is why the preview lists every address, unticks
+  non-local ones and asks you to import only from people you trust.
 - Still pictures are fetched over HTTPS. Logins are never sent in readable
   form over plain HTTP.
 - Give OmaCam a **view-only camera account** rather than the admin login.

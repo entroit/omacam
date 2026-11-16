@@ -26,8 +26,15 @@ Item {
     return -1
   }
 
+  // Unique within this store, also for many ids made in the same moment.
+  property int _serial: 0
   function newId() {
-    return "cam-" + Date.now().toString(36) + "-" + Math.floor(Math.random() * 1e6).toString(36)
+    var id
+    do {
+      _serial += 1
+      id = "cam-" + Date.now().toString(36) + "-" + Math.floor(Math.random() * 1e6).toString(36) + _serial.toString(36)
+    } while (indexOf(id) >= 0)
+    return id
   }
 
   function clean(camera) {
@@ -49,6 +56,28 @@ Item {
     cameras = cameras.concat([record])
     save()
     return record.id
+  }
+
+  // Several new cameras with one save (an import). Returns their ids.
+  function addMany(list) {
+    var records = list.map(function(camera) { var r = clean(camera); r.id = newId(); return r })
+    if (records.length === 0) return []
+    cameras = cameras.concat(records)
+    save()
+    return records.map(function(r) { return r.id })
+  }
+
+  // Only the login of a camera (a share brought a different one).
+  function updateLogin(id, user, password) {
+    var i = indexOf(id)
+    if (i < 0) return
+    var next = cameras.slice()
+    var record = clean(next[i])
+    record.user = String(user || "")
+    record.password = String(password || "")
+    next[i] = record
+    cameras = next
+    save()
   }
 
   function update(id, camera) {
@@ -110,10 +139,14 @@ Item {
   }
 
   // After the write has landed: a saved file is a new file, made with the
-  // default permissions. Also run on load, for files written by hand.
+  // default permissions. Also run on load, for files written by hand. Only
+  // changes the mode when it isn't 600 already: even a no-op chmod touches the
+  // file's metadata, which the watcher below sees as a change, so it would
+  // reload the list again and again (and a reload that lands just after an
+  // add or import would put the old list back).
   Process {
     id: lockDown
-    command: ["chmod", "600", root.path]
+    command: ["sh", "-c", "[ \"$(stat -c %a -- \"$1\")\" = 600 ] || chmod 600 -- \"$1\"", "omacam-lock", root.path]
   }
 
   FileView {

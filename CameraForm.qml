@@ -81,6 +81,8 @@ Column {
   function save() {
     if (name.trim() === "") { error = "Give the camera a name"; nameField.forceActiveFocus(); return }
     if (!canTest) { error = custom ? "Enter the stream URL" : "Enter the camera's IP address"; (custom ? urlField : hostField).forceActiveFocus(); return }
+    var checked = checkDraft()
+    if (!checked.ok) { error = checked.error; saveAfterTest = false; return }
     // Not tested yet: find the stream first so the right address is saved.
     if (!custom && !(result && result.ok)) {
       saveAfterTest = true
@@ -90,8 +92,17 @@ Column {
     commit()
   }
 
+  // The same check an import goes through, a little more relaxed about the
+  // address of a custom URL (any scheme the player accepts).
+  function checkDraft() {
+    var layouts = Brands.variantCount(brand)
+    return Brands.checkCamera({ name: name, brand: brand, host: host, url: url, user: user, password: password, variant: variant < layouts ? variant : 0, enabled: source ? source.enabled : true }, { form: true })
+  }
+
   function commit() {
-    var record = { name: name, brand: brand, host: host, url: url, user: user, password: password, variant: variant, enabled: source ? source.enabled : true }
+    var checked = checkDraft()
+    if (!checked.ok) { error = checked.error; return }
+    var record = checked.record
     var id = source ? ctx.store.update(source.id, record) : ctx.store.add(record)
     ctx.formSaved(id)
   }
@@ -286,6 +297,7 @@ Column {
       width: Math.min(implicitWidth, parent.width - editLink.width - 10)
       elide: Text.ElideMiddle
       text: Brands.displayUrl(root.draft)
+      textFormat: Text.PlainText
       font.family: root.pal.font
       font.pixelSize: Style.font.caption + 1
       color: root.pal.dim
@@ -362,6 +374,7 @@ Column {
           wrapMode: Text.WordWrap
           maximumLineCount: 2
           elide: Text.ElideRight
+          textFormat: Text.PlainText
           text: root.testing ? (finder.total === 0 ? "Looking at the camera\u2026" : "Trying " + finder.tryingBrand + "\u2026")
               : !root.result ? "Not tested yet"
               : root.result.ok ? "Connected"
@@ -427,6 +440,7 @@ Column {
       anchors.verticalCenter: parent.verticalCenter
       visible: root.error !== ""
       text: root.error
+      textFormat: Text.PlainText
       font.family: root.pal.font
       font.pixelSize: Style.font.bodySmall
       color: root.pal.urgent
@@ -435,7 +449,7 @@ Column {
       anchors { right: parent.right; verticalCenter: parent.verticalCenter }
       spacing: 8
       ActionButton { pal: root.pal; variant: "plain"; text: "Cancel"; onClicked: root.ctx.cancelForm() }
-      ActionButton { pal: root.pal; variant: "primary"; text: root.saveAfterTest ? "Finding stream\u2026" : (root.source ? "Save changes" : "Save camera"); hint: "↵"; onClicked: root.save() }
+      ActionButton { pal: root.pal; variant: "primary"; text: root.saveAfterTest ? "Finding stream\u2026" : (root.source ? "Save changes" : "Save camera"); hint: "\u{F0311}"; onClicked: root.save() }
     }
   }
 }

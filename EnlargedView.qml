@@ -38,6 +38,7 @@ Column {
       Text {
         anchors.verticalCenter: parent.verticalCenter
         text: root.camera ? root.camera.name : ""
+        textFormat: Text.PlainText
         font.family: root.pal.font
         font.pixelSize: Style.font.heading + 2
         font.weight: Font.Bold
@@ -202,7 +203,7 @@ Column {
               Column {
                 anchors { left: thumb.right; leftMargin: 12; right: dot.left; rightMargin: 8; verticalCenter: parent.verticalCenter }
                 spacing: 3
-                Text { width: parent.width; elide: Text.ElideRight; text: row.modelData.name; font.family: root.pal.font; font.pixelSize: Style.font.subtitle; font.weight: Font.DemiBold; color: root.pal.fg }
+                Text { width: parent.width; elide: Text.ElideRight; text: row.modelData.name; textFormat: Text.PlainText; font.family: root.pal.font; font.pixelSize: Style.font.subtitle; font.weight: Font.DemiBold; color: root.pal.fg }
                 Text {
                   width: parent.width
                   visible: text !== ""

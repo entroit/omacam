@@ -40,6 +40,39 @@ Item {
     if (error === "") write(raw)
   }
 
+  // Settings from a share: cleaned up (Config.sanitize, with the settings in
+  // use as the fallback) and written, unless the file has an error.
+  function replace(obj) {
+    raw = Config.sanitize(obj, values)
+    if (error === "") write(raw)
+  }
+
+  // replace(), after config.json is copied to config.json.bak (nothing is
+  // replaced when that copy fails). The copy and the replacement finish by
+  // themselves, whether or not the share view that asked is still open;
+  // `replaced(ok)` tells a view that is. Settings aren't secret, so there is no
+  // reason to drop them on the floor if the view closes in the meantime.
+  signal replaced(bool ok)
+  property var pendingReplace: null
+
+  function replaceWithBackup(obj) {
+    if (error !== "") { replaced(false); return }
+    pendingReplace = obj
+    backup.running = true
+  }
+
+  Process {
+    id: backup
+    command: ["sh", "-c", 'if [ -e "$1" ]; then cp -p -- "$1" "$1.bak"; fi', "omacam-backup", root.path]
+    onExited: function(code) {
+      var obj = root.pendingReplace
+      root.pendingReplace = null
+      var ok = code === 0 && obj !== null && root.error === ""
+      if (ok) root.replace(obj)
+      root.replaced(ok)
+    }
+  }
+
   function write(obj) {
     ensureDir.text = Config.format(obj)
     ensureDir.running = true
