@@ -120,6 +120,9 @@ Item {
   property bool attempting: false
   property bool loaded: false        // connection open, waiting for the first picture
   property bool probing: false
+  // Has shown pictures before: then a failure is the network or the camera,
+  // never a low-res stream that doesn't work.
+  property bool everLive: false
   property string url: ""
 
   function start() {
@@ -135,6 +138,9 @@ Item {
     attempting = true
     loaded = false
     player.stop()
+    // Same address again (a reconnect): without clearing it first the
+    // player keeps its old, possibly dead connection instead of opening one.
+    player.source = ""
     player.source = url
     player.play()
   }
@@ -159,15 +165,6 @@ Item {
   // Playback failed or stalled: stop, then ask ffprobe why.
   function fail() {
     if (probing) return
-    // The low-res stream doesn't work for some cameras: their views move to
-    // the full one.
-    if (quality === "sub" && cameraId !== "" && !Shared.subBroken[cameraId]) {
-      attempting = false
-      player.stop()
-      player.source = ""
-      pool.markSubBroken(cameraId)
-      return
-    }
     probing = true
     attempting = false
     player.stop()
@@ -179,8 +176,19 @@ Item {
     if (!attempting) return
     attempting = false
     loaded = false
+    lastFrame = Date.now()
+    everLive = true
     status = "live"
     message = ""
+  }
+
+  // A live stream lost (network gone, camera rebooted): keep its status
+  // while reconnecting quietly, as for a stream that ended.
+  function dropped() {
+    if (status !== "live" || probing) return
+    status = "connecting"
+    player.stop()
+    reconnect.restart()
   }
 
   // Creation and the camera address arriving ask for a start within the same
@@ -211,6 +219,7 @@ Item {
     }
     onErrorOccurred: function(error, errorString) {
       if (root.attempting) root.fail()
+      else root.dropped()
     }
   }
 
@@ -230,11 +239,29 @@ Item {
   }
 
   // Live means a picture arrived, not just that the connection opened.
+  // player.stop() clears the output with an empty frame (size -1×-1), which
+  // must not count: start() stops the player while attempting, so that frame
+  // would mark a camera live that never sent anything.
+  property double lastFrame: 0
   Connections {
     target: root.output ? root.output.videoSink : null
-    // Deferred: going live hands pictures around, which mustn't happen
-    // while the output is still being switched.
-    function onVideoFrameChanged() { if (root.attempting) Qt.callLater(root.markLive) }
+    function onVideoFrameChanged() {
+      if (root.output.videoSink.videoSize.width <= 0) return
+      root.lastFrame = Date.now()
+      // Deferred: going live hands pictures around, which mustn't happen
+      // while the output is still being switched.
+      if (root.attempting) Qt.callLater(root.markLive)
+    }
+  }
+
+  // A connection that dies without a word (cable out, Wi-Fi gone) leaves
+  // FFmpeg waiting with the last picture up. No new picture for a while
+  // means it's gone: reconnect.
+  Timer {
+    interval: 2000
+    repeat: true
+    running: root.status === "live"
+    onTriggered: if (Date.now() - root.lastFrame > root.pool.stallMs) root.dropped()
   }
 
   VideoOutput { id: parking; width: 1; height: 1; visible: false }
@@ -244,6 +271,14 @@ Item {
     onFinished: function(r) {
       root.probing = false
       if (!root.held) return
+      // The low-res stream doesn't work for some cameras (wrong address, or
+      // a format the player can't show): their views move to the full one.
+      // A camera that is offline or refuses the login isn't one of them.
+      if (root.quality === "sub" && root.cameraId !== "" && !Shared.subBroken[root.cameraId]
+          && !root.everLive && (r.ok || r.kind === "path" || r.kind === "error")) {
+        root.pool.markSubBroken(root.cameraId)
+        return
+      }
       if (r.ok) {
         // ffprobe can read it, so playback hiccupped: try again soon.
         reconnect.restart()

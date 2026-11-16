@@ -135,6 +135,10 @@ function detectBrand(page) {
 // Single-picture (JPEG) address per brand, used to show a fresh picture the
 // moment a view opens while the live stream is still connecting. "query"
 // brands take the login in the address; the others use HTTP basic/digest.
+// Pictures are asked for over HTTPS. Plain HTTP is only a fallback for
+// "http" brands, and there the helper answers digest challenges only, so a
+// login never crosses the network readable: "query" brands get no HTTP
+// fallback at all.
 var snapshots = {
   reolink:   { path: "/cgi-bin/api.cgi?cmd=Snap&channel=0&rs=omacam&user={user}&password={password}", auth: "query" },
   hikvision: { path: "/ISAPI/Streaming/channels/101/picture", auth: "http" },
@@ -142,20 +146,24 @@ var snapshots = {
   dahua:     { path: "/cgi-bin/snapshot.cgi?channel=1", auth: "http" },
   dlink:     { path: "/image/jpeg.cgi", auth: "http" },
   axis:      { path: "/axis-cgi/jpg/image.cgi", auth: "http" },
-  foscam:    { path: "/cgi-bin/CGIProxy.fcgi?cmd=snapPicture2&usr={user}&pwd={password}", auth: "query", port: 88 }
+  foscam:    { path: "/cgi-bin/CGIProxy.fcgi?cmd=snapPicture2&usr={user}&pwd={password}", auth: "query" }
 }
 
-// { url, user, password } for curl, or null when the brand has no snapshot.
+// { url, plainUrl, user, password } for the snapshot helper, or null when the
+// brand has no snapshot. plainUrl is "" when the login must not go over HTTP.
 function snapshotRequest(camera) {
   if (!camera || camera.brand === "custom") return null
   var s = snapshots[camera.brand]
   if (!s) return null
   var host = splitHost(camera.host, 80).host
   if (!host) return null
+  if (host.indexOf(":") !== -1) host = "[" + host + "]"
   var path = s.path.replace("{user}", encodeURIComponent(camera.user || "")).replace("{password}", encodeURIComponent(camera.password || ""))
+  var http = s.auth === "http"
   return {
-    url: "http://" + host + (s.port ? ":" + s.port : "") + path,
-    user: s.auth === "http" ? String(camera.user || "") : "",
-    password: s.auth === "http" ? String(camera.password || "") : ""
+    url: "https://" + host + path,
+    plainUrl: http ? "http://" + host + path : "",
+    user: http ? String(camera.user || "") : "",
+    password: http ? String(camera.password || "") : ""
   }
 }

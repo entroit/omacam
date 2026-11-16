@@ -13,6 +13,8 @@ Item {
   property int lingerMs: 30000
   // Wait between attempts for a camera that failed.
   property int retrySeconds: 15
+  // A live stream with no new picture for this long counts as lost.
+  property int stallMs: 10000
   // Smallest delay; off buffers a little for unsteady networks.
   property bool lowLatency: true
   // Bumped when a camera's low-res stream turns out not to work, so views
